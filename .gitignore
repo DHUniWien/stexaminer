@@ -1,0 +1,16 @@
+*.pyc
+.env
+env.list
+*.log
+client/received/
+client/venv/
+*.db
+.DS_Store
+*/*/*/temp/
+*/*/temp/
+*/temp/
+tmp.gz
+lsettings.py
+vsc_config/
+.vscode
+some_versions.txt
