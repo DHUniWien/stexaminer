@@ -1,0 +1,24 @@
+pyopenssl 
+### needed?
+ndg-httpsclient
+
+requests
+ 
+mysqlclient 
+pymysql 
+
+### for debugging
+ptvsd 
+
+pygraphviz 
+graphviz
+
+### needed?
+djangorestframework
+#pyasn1 
+
+###########################
+Django==2.2.5
+celery==5.2.7
+kombu
+redis==4.3.4

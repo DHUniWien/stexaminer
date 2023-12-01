@@ -1,0 +1,62 @@
+version: '3'
+services:
+    mysql:
+        image: "mysql:8"     ### 8.0.32-1.el8 was used, but rised: django.db.utils.OperationalError: (1118, 'Row size too large. 
+                                 ### The maximum row size for the used table type, not counting BLOBs, is 65535. 
+                                 ###This includes storage overhead, check the manual. You have to change some columns to TEXT or BLOBs')
+        restart: always
+        environment:
+            #MYSQL_PASSWORD: "${MYSQL_PASSW}"
+            MYSQL_PASSWORD: "ChangeMe"
+            MYSQL_USER: "idp"
+            MYSQL_RANDOM_ROOT_PASSWORD: "YES"
+            MYSQL_DATABASE: "idp3api_v1"
+        command: ['--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci']
+
+    redis: 
+        image: "redis:alpine"   ### version 4.3.4 fits to celery 5.2.
+        restart: always
+        sysctls:
+            # change this Linux Kernel Parameter (default is 128) within container because of this WARNING
+            # "The TCP backlog setting of 511 cannot be enforced
+            # because /proc/sys/net/core/somaxconn is set to the lower value of 128."
+            net.core.somaxconn: 512     # maximal number of connections
+        volumes:
+            - ./redisinit/redis.conf:/usr/local/etc/redis/redis.conf       # version 6 from  https://redis.io/topics/config     ## adapted
+        command:
+            redis-server /usr/local/etc/redis/redis.conf
+
+    #django_celery_idp:
+    idp:
+        build: .
+        restart: always
+        environment:
+            #MYSQL_PASSW: "${MYSQL_PASSW}"
+            #MYSQL_PASSWORD: "${MYSQL_PASSW}"
+            MYSQL_PASSWORD: "ChangeMe"
+            MYSQL_PASSW: "ChangeMe"
+        depends_on:
+        - mysql
+        - redis
+
+        ports:
+            - "127.0.0.1:8000:8000"   
+            - "127.0.0.1:3000:3000"         ### needed for debugging only
+
+
+    client:
+        build: client/
+        restart: always
+        depends_on:
+            - idp
+        volumes:
+            - ./client:/src/app
+        ports:
+            - "127.0.0.1:8001:8001"
+        #profiles:
+        #    - testing
+
+##networks:
+##  default:
+##    external: true
+##    name: idp3_async_api_djproj_default
