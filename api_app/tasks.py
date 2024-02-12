@@ -232,6 +232,14 @@ class MyCalcTask(Task):
 		cmd2 = ' | idp -e "exec('
 		cmd3 = ')" main.idp'
 		command = catcmd + infilepath + cmd2 + ctype + cmd3
+
+		# next 2 lines with waitcmd = TESTCASE: simulate long running calc and wait some time 
+		# comment them out, if you are not running this TESTCASE
+		#waitcmd = 'sleep 30; '
+		#command = waitcmd + catcmd + infilepath + cmd2 + ctype + cmd3
+		### End of TESTCASE		
+
+		### Here we call the idp app as an external command line application:		
 		res = subprocess.run(command, capture_output=True, text=True, shell = True)
 
 		"""
