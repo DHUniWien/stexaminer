@@ -28,8 +28,14 @@ class CalcRequest(View):
     def post(self, request):
         logging.info('CalcRequest View called \n')
         req = json.loads(request.body.decode("utf-8"))
-        ret_path = req.get('return_path')   ### for the testing client: ret_path = "/result" 
-        ret_host = req.get('return_host')   ### for the testing client: ret_host = 'client:8001'  ## or 'http://client:8001'  
+        try: ### used later if return_path is provided in the request
+            ret_path = req.get('return_path')   ### for the testing client: ret_path = "/result" 
+        except:
+            ret_path = None
+        try: ### used later if return_host is provided in the request
+            ret_host = req.get('return_host')   ### for the testing client: ret_host = 'client:8001'  ## or 'http://client:8001'  
+        except:
+            ret_host = None
         idp_content = req.get('content')
         req_calcType = None
         req_calcType = idp_content.get('command')      #### one of these: findGroupings / findClasses / findSources

@@ -81,23 +81,25 @@ def calc_run_error(*args, run_id=None, return_host=None, return_path=None):
 		}
 	
 
-	# Does the return host have a schema defined?
-	targeturl = return_host + return_path
+	if ((return_host!=None) & (return_path!=None)):  ### for later usage, if these 2 parameters are provided with the request
 
-	EXPLICIT_SCHEMA = return_host.startswith('https://') or return_host.startswith('http://')
-	if EXPLICIT_SCHEMA:
-		r = requests.post(targeturl, json=ret)
-	else:
-		# We will have to try both
-		try:
-			r = requests.post('https://%s' % targeturl, json=ret)
-		except SSLError:
-			r = requests.post('http://%s' % targeturl, json=ret)
+		# Does the return host have a schema defined?
+		targeturl = return_host + return_path
 
-	try: 
-		r.raise_for_status()
-	except HTTPError as e:
-		logging.warn("Attempt to return response to %s got an error: %s" % (targeturl, e.message))
+		EXPLICIT_SCHEMA = return_host.startswith('https://') or return_host.startswith('http://')
+		if EXPLICIT_SCHEMA:
+			r = requests.post(targeturl, json=ret)
+		else:
+			# We will have to try both
+			try:
+				r = requests.post('https://%s' % targeturl, json=ret)
+			except SSLError:
+				r = requests.post('http://%s' % targeturl, json=ret)
+
+		try: 
+			r.raise_for_status()
+		except HTTPError as e:
+			logging.warn("Attempt to return response to %s got an error: %s" % (targeturl, e.message))
 
 
 
@@ -115,55 +117,56 @@ def calc_run_finished(*args, run_id=None, return_host=None, return_path=None):
 		#logging.info ('######## No errors occured ##########\n')
 		pass
 
-	try:
-		ci = Calc.objects.get(id=run_id)			### django-DB connection can be lost after errors during calc run
-	except OperationalError:
-		logging.warn ('\n ############ close and restore damaged DB connections #############\n')
-		for conn in connections.all():
-			conn.close_if_unusable_or_obsolete()			### close damaged DB connections
+	if ((return_host!=None) & (return_path!=None)):  ### for later usage, if these 2 parameters are provided with the request
 
-		#cursor = connection.cursor()	### Will result in: jango.db.utils.InterfaceError: connection already closed
-		
-		connection.cursor().execute('SELECT 1;')			### restore DB connections
-
-		### get object again from DB:
-		ci = Calc.objects.get(id=run_id)
-
-	
-	ci.calc_status = settings.STATUS_CODES['finished']
-	ci.calc_end = datetime.datetime.now()
-	ci.save()
-	
-	with open(ci.result_path, "r") as fp:
-			#result = fp.read()
-			calc_result = json.load(fp)
-
-
-	ret = {
-		'jobid': run_id,
-		'statuscode': ci.calc_status,
-		'start_time': str(ci.calc_start),
-		'end_time': str(ci.calc_end),
-		'result': calc_result
-		}
-	
-
-	# Does the return host have a schema defined?
-	targeturl = return_host + return_path
-	EXPLICIT_SCHEMA = return_host.startswith('https://') or return_host.startswith('http://')
-	if EXPLICIT_SCHEMA:
-		r = requests.post(targeturl, json=ret)
-	else:
-		# We will have to try both
 		try:
-			r = requests.post('https://%s' % targeturl, json=ret)
-		except SSLError:
-			r = requests.post('http://%s' % targeturl, json=ret)
+			ci = Calc.objects.get(id=run_id)			### django-DB connection can be lost after errors during calc run
+		except OperationalError:
+			logging.warn ('\n ############ close and restore damaged DB connections #############\n')
+			for conn in connections.all():
+				conn.close_if_unusable_or_obsolete()			### close damaged DB connections
 
-	try: 
-		r.raise_for_status()
-	except HTTPError:
-		logging.warn("Attempt to return response to %s got an error: %d %s" % (targeturl, r.status_code, r.text))
+			#cursor = connection.cursor()	### Will result in: jango.db.utils.InterfaceError: connection already closed
+			
+			connection.cursor().execute('SELECT 1;')			### restore DB connections
+
+			### get object again from DB:
+			ci = Calc.objects.get(id=run_id)
+
+		### already set at the end of MyCalcTask.run()
+		#ci.calc_status = settings.STATUS_CODES['finished']
+		#ci.calc_end = datetime.datetime.now()
+		#ci.finished = True
+		#ci.save(update_fields=['calc_status', 'calc_end', 'finished'])
+	
+		with open(ci.result_path, "r") as fp:
+				#result = fp.read()
+				calc_result = json.load(fp)
+
+		ret = {
+			'jobid': run_id,
+			'statuscode': ci.calc_status,
+			'start_time': str(ci.calc_start),
+			'end_time': str(ci.calc_end),
+			'result': calc_result
+			}
+		
+		# Does the return host have a schema defined?
+		targeturl = return_host + return_path
+		EXPLICIT_SCHEMA = return_host.startswith('https://') or return_host.startswith('http://')
+		if EXPLICIT_SCHEMA:
+			r = requests.post(targeturl, json=ret)
+		else:
+			# We will have to try both
+			try:
+				r = requests.post('https://%s' % targeturl, json=ret)
+			except SSLError:
+				r = requests.post('http://%s' % targeturl, json=ret)
+
+		try: 
+			r.raise_for_status()
+		except HTTPError:
+			logging.warn("Attempt to return response to %s got an error: %d %s" % (targeturl, r.status_code, r.text))
 
 
 
@@ -176,7 +179,7 @@ class MyCalcTask(Task):
 		logging.basicConfig(level=logging.DEBUG, file='/home/idp/logs/MyCalcTask.log', filemode='a', format='%(asctime)s-%(levelname)s-%(message)s')
 
 
-	def run(self, **kwargs):		
+	def run(self, **kwargs):
 		self.__init__(**kwargs)
 		logging.info('############### logging: MycalcTask run() called ################# \n')
 		with open('/home/idp/logs/MyCalcTask.log', 'a') as f:
@@ -283,7 +286,7 @@ class MyCalcTask(Task):
 			ci.result_path = os.path.join (result_dir, "_result.json")
 			ci.save(update_fields=['calc_status', 'result_path', 'calc_end', 'finished'])
 			if match_warn:
-				ci.warning_msg = res.stderr
+				ci.warning_msg = res.stderr	### 2bchecked: are warnings separated from errors?
 				ci.save(update_fields=['warning_msg'])
 				logging.warning(res.stderr)
 			#os.chdir(result_dir)
