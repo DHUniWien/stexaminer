@@ -1,5 +1,3 @@
-
-# from django.shortcuts import render, get_object_or_404
 import subprocess
 from . import settings
 from django.views import View
@@ -14,7 +12,7 @@ from rest_framework.decorators import api_view
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from datetime import datetime
-from . models import Calc
+from . models import Calc, Results
 from . execute_calc import run_add, run_calc
 import re
 import codecs
@@ -22,7 +20,7 @@ import logging
 
 logging.basicConfig(level=logging.DEBUG, file='/home/idp/logs/View.log', filemode='a', format='%(asctime)s-%(levelname)s-%(message)s')
 logging.info('Starting logging into this View.log\n')
-with open('/home/idp/logs/View.log', 'a') as f:
+with open('/home/idp/logs/view.log', 'a') as f:
 		f.write("\n Start write-appending into this view file\n")
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -41,13 +39,26 @@ class CalcRequest(View):
             else:
                 error_msg = "Command '" + req_calcType + "' is not possible. \n \
                              Please provide one of these commands / calculation types: findGroupings / findClasses / findSources"
-            #print (error_msg)
             return JsonResponse({"error": error_msg}, status=201)
       
-        ### data_cleaned = json.dumps(idp_content, ensure_ascii=False)   #### inserts // before each element, which we do not want to have!
-
+        groups = idp_content.get('groupings') 
+        # groups example:
+        #  [[['A', 'C', 'D', 'F', 'H', 'P', 'S', 'T'], ['E', 'K', 'Q']],
+        #   [['A', 'F', 'H', 'K', 'P', 'S'], ['C', 'D', 'E', 'Q', 'T']],
+        #   [['A', 'C', 'E', 'F', 'H', 'K', 'T'], ['D', 'P', 'Q', 'S']]]
+        
+        stem_string = idp_content.get('graph') 
+        # stemma-string example:
+        #'digraph stemma {   2 [ class=hypothetical ];   3 [ class=hypothetical ];   4 [ class=hypothetical ];   
+        #    5 [ class=hypothetical ];   7 [ class=hypothetical ];   B [ class=hypothetical ];   G [ class=hypothetical ];
+        #   "α" [ class=hypothetical ];   "γ" [ class=hypothetical ];   "δ" [ class=hypothetical ];   A [ class=extant ];
+        #    C [ class=extant ];   D [ class=extant ];   E [ class=extant ];   F [ class=extant ];   H [ class=extant ];
+        #    K [ class=extant ];   P [ class=extant ];   Q [ class=extant ];   S [ class=extant ];   T [ class=extant ];
+        #    2 -> B;   2 -> C;   3 -> F;   3 -> H;   4 -> 5;   4 -> D;   5 -> 7;   5 -> K;   5 -> Q;   7 -> E;   7 -> G;
+        #    B -> P;   B -> S;   "α" -> A;   "α" -> T;   "α" -> "δ";   "γ" -> 3;   "γ" -> 4;   "δ" -> 2;   "δ" -> "γ"; }'
+        
         calc_data = {
-            'input_data': idp_content,
+            'input_data': idp_content,    ### raw
             'calculation_type': req_calcType,
             'calc_start': datetime.now(),
             'calc_end': datetime.now(),
@@ -58,14 +69,15 @@ class CalcRequest(View):
             'result_path': ""
         }
 
-        calc_instance = Calc.objects.create(**calc_data)
+        calc_instance = Calc.objects.create(**calc_data)     ### store calc_data in DB
         ci = Calc.objects.get(id=calc_instance.id)
         ci.calc_start = datetime.now()
         ci.calc_status = settings.STATUS_CODES['running']
 
-        # selective save schema:  obj.save(update_fields=['field_1', 'field_2']) 
+        # dedicated elements saving schema:  obj.save(update_fields=['field_1', 'field_2']) 
         ci.save(update_fields=['calc_status', 'calc_start'])
 
+        result = None
         result = run_calc(d=idp_content, c=req_calcType, obj_id=calc_instance.id, h=ret_host, p=ret_path) 
 
         ### commented out because this is probably better done in tasks.py/MyCalcTask:
@@ -74,7 +86,37 @@ class CalcRequest(View):
         #ci.finished = True
         #ci.save(update_fields=['calc_status', 'calc_end', 'finished'])
 
-        return JsonResponse({"result":str(result)}, status=201)
+
+        ### result example for algorithm/req_calcType = "findGroupings":
+        ### 'result: [[[["2","3","4","A","B","C","D","F","H","P","S","T","u03b1","u03b3","u03b4"],["5","7","E","G","K","Q"]],true],
+        ###          [[["A","F","H","K","P","S"],["C","D","E","Q","T"]],false],
+        ###          [[["A","C","E","F","H","K","T"],["D","P","Q","S"]],false]]\n'   
+
+        if (result == None):
+            return JsonResponse({"Feedback ":"The calculation is ongoing, please try again later"}, status=201)
+        else:
+            result = result.rstrip('\n') ### remove trailing newline
+            result = result.split(":", 1) ### split at ':' after 'result';       1: do no further splits
+            
+            res_trees = json.loads(result[1])
+            tree_count = len(res_trees)
+
+            c = 0
+            while c < tree_count:                    ### don't want to just check: "while tree_count"  would store res_data in reverse order into DB later
+
+                res_data = {
+                    'calc_id': calc_instance,        ### foreign key towards the Calc table; cannot be just an int.
+                    'algorithm': req_calcType,
+                    'stemmastring': stem_string,
+                    'grouping': groups[c],           ### input grouping
+                    'result': res_trees[c]           ### result grouping 
+                }
+                result_record = Results.objects.create(**res_data)   ### store res_data in DB; create new record
+                c += 1
+            
+
+            return JsonResponse({"Your result ":str(result)}, status=201)
+
 
 
 @api_view(['GET'])
@@ -112,8 +154,8 @@ def jobstatus(request, run_id):
 		if algo_run.calc_status == settings.STATUS_CODES['failure']:
 			msg['result'] = algo_run.error_msg  ### Shall the result field contain the error info according 
 												### to the white paper for stemweb?; we could also use an error field
-			msg['end_time'] = str(algo_run.calc_end) 
-			return HttpResponse(json.dumps(msg))			
+			msg['end_time'] = str(algo_run.calc_end)
+			return HttpResponse(json.dumps(msg))
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -130,11 +172,4 @@ class AddRequest(View):
         #result = run_add(x,y)
         result = run_add(int(x),int(y))
         return JsonResponse({"result": result}, status=201)
-
-
-
-@method_decorator(csrf_exempt, name='dispatch')
-class CalcStatusRequest(View):
-    def post(self, request):
-       pass
 
