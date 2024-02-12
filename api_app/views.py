@@ -130,7 +130,7 @@ def jobstatus(request, run_id):
 			response.status_code = 400
 			return response
 
-		# Construct basic response 
+		# Build basic response 
 		msg = {
 			'jobid': algo_run.id,
 			'status': algo_run.calc_status,
@@ -138,21 +138,34 @@ def jobstatus(request, run_id):
 			'start_time': str(algo_run.calc_start)
 			}
 
+		if algo_run.calc_status == settings.STATUS_CODES['running']:
+			msg['result'] = "The calculation is ongoing, please try again later"
+			return HttpResponse(json.dumps(msg))
+
 		if algo_run.calc_status == settings.STATUS_CODES['finished']:
 			# read result from file:
 			with open(algo_run.result_path, mode='r') as f:
 				result = json.load(f)
+			# add response fields:
 			msg['result'] = result
 			msg['end_time'] = str(algo_run.calc_end)
 
 			### 2bclarified: Shall we include a warning content in the answer, if it exists?
+			###   could set/unset it via parameter "hide_warnings = True/False"
+			### The warnings usually come from the external idp app and give e.g. infos like this:
+			# Warning: Derived sort Manuscript for variable x. At findClasses.idp:22:19
+			# Warning: Verifying and/or autocompleting structure SClass
+			# Warning: Sort Variant in structure SClass has an empty interpretation.
+			# Warning: Sort Manuscript in structure SClass has an empty interpretation.
+
 			#if algo_run.warning_msg != None:
 			#	msg['warning_msg'] = algo_run.warning_msg
 
 			return HttpResponse(json.dumps(msg))
 
 		if algo_run.calc_status == settings.STATUS_CODES['failure']:
-			msg['result'] = algo_run.error_msg  ### Shall the result field contain the error info according 
+			# add response fields:
+			msg['result'] = algo_run.error_msg  ### 2bclarified: Shall the result field contain the error info according 
 												### to the white paper for stemweb?; we could also use an error field
 			msg['end_time'] = str(algo_run.calc_end)
 			return HttpResponse(json.dumps(msg))

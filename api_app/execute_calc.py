@@ -2,8 +2,10 @@ from . tasks import ClassBasedAddingTask, adding_task, MyCalcTask, calc_run_fini
 from idp3_async_api_djproj.celery import Celery
 from celery.result import AsyncResult
 from celery import signature
+import logging
 
 
+logging.basicConfig(level=logging.INFO, file='/home/idp/logs/executeCalc.log', filemode='a', format='%(asctime)s-%(levelname)s-%(message)s')
 def run_add(a,b):
     """
     a toy function to quickly check the basic usage of the celery framework for asynchronuous task execution
@@ -21,7 +23,6 @@ def run_add(a,b):
 
 
 def run_calc(**kwargs): ### kwargs filled in views.py: d=data, c=req_calcType, obj_id=calc_id, h=ret_host, p=ret_path
-
     run_id = kwargs['obj_id']
     return_path = kwargs['p']
     return_host = kwargs['h']
@@ -30,12 +31,18 @@ def run_calc(**kwargs): ### kwargs filled in views.py: d=data, c=req_calcType, o
         link = calc_run_finished.signature(kwargs = {'run_id': run_id, 'return_host': return_host , 'return_path': return_path}) ,
         link_error = calc_run_error.signature(kwargs = {'run_id': run_id, 'return_host': return_host , 'return_path': return_path}))
     
-    ### use sync call for debugging purpose:
+    ### use sync call instead of async call for debugging purpose:
     #res = MyCalcTask.apply(kwargs = kwargs,
     #   link = calc_run_finished.signature(kwargs = {'run_id': run_id, 'return_host': return_host , 'return_path': return_path}) ,
     #   link_error = calc_run_error.signature(kwargs = {'run_id': run_id, 'return_host': return_host , 'return_path': return_path}))   
 
-    #print(res.status)       ### e.g.: FAILURE, SUCCESS
-    a_synced_res = res.get()
-    #print('#################################### the asynced result is:  ', a_synced_res, '+++++++++++++++++')
+    #print(res.status)       ### e.g.: FAILURE, SUCCESS, PENDING
+    #logging.info('##################### the asynced status is:  ', str(res.status), '+++++++++++++++++\n')
+
+    if ((res.status == "FAILURE") or (res.status == "SUCCESS")):
+        a_synced_res = res.get()
+    elif (res.status == "PENDING"):  ### is the same as status STATUS_CODES[running] in settings.py
+        a_synced_res = None
+    else:  ### prepared for not yet discovered/received status; possibly to be handled differently
+        a_synced_res = None
     return a_synced_res
