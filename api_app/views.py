@@ -99,7 +99,7 @@ class CalcRequest(View):
         ###          [[["A","C","E","F","H","K","T"],["D","P","Q","S"]],false]]\n'   
 
         if (result == None):
-            return JsonResponse({"Feedback ":"The calculation is ongoing, please try again later"}, status=201)
+            return JsonResponse({"Feedback ":"The calculation is ongoing, please request the result/status later"}, status=201)
         else:
             result = result.rstrip('\n') ### remove trailing newline
             result = result.split(":", 1) ### split at ':' after 'result';       1: do no further splits

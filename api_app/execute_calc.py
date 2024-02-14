@@ -3,6 +3,8 @@ from idp3_async_api_djproj.celery import Celery
 from celery.result import AsyncResult
 from celery import signature
 import logging
+from time import sleep
+from . settings import WAIT_FOR_IDPRESULT
 
 
 logging.basicConfig(level=logging.INFO, file='/home/idp/logs/executeCalc.log', filemode='a', format='%(asctime)s-%(levelname)s-%(message)s')
@@ -40,13 +42,19 @@ def run_calc(**kwargs):
     #   link = calc_run_finished.signature(kwargs = {'run_id': run_id, 'return_host': return_host , 'return_path': return_path}) ,
     #   link_error = calc_run_error.signature(kwargs = {'run_id': run_id, 'return_host': return_host , 'return_path': return_path}))   
 
-    #print(res.status)       ### e.g.: FAILURE, SUCCESS, PENDING
-    #logging.info('##################### the asynced status is:  ', str(res.status), '+++++++++++++++++\n')
+    #logging.info('###### the immediate asynced status is: %s %s', res.status, '#####')
 
-    if ((res.status == "FAILURE") or (res.status == "SUCCESS")):
+    if res.status in ("FAILURE","SUCCESS"):
+        logging.info('###### celery task %s for idp-run %s is finished', res.id, run_id)
         a_synced_res = res.get()
-    elif (res.status == "PENDING"):  ### is the same as status STATUS_CODES[running] in settings.py
-        a_synced_res = None
-    else:  ### prepared for not yet discovered/received status; possibly to be handled differently
-        a_synced_res = None
+    elif (res.status == "PENDING"):  ### means the same as status STATUS_CODES[running] in settings.py
+        sleep(WAIT_FOR_IDPRESULT)    ### Wait for the task to possibly finish after this (short) time
+        if res.ready():
+            logging.info('###### celery task %s for idp-run %s is finished', res.id, run_id)
+            a_synced_res = res.get() ### fetch the result & status, etc,  again
+        else:
+            a_synced_res = None      ### the task is still ongoing
+    else:  ### prepared for not yet discovered/received status
+        logging.info('##### The not yet discovered status of the idp-run %s is: ', res.status)
+        a_synced_res = None          ### possibly to be handled differently
     return a_synced_res
