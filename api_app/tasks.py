@@ -107,9 +107,9 @@ def calc_run_error(*args, run_id=None, return_host=None, return_path=None):
 @shared_task
 def calc_run_finished(*args, run_id=None, return_host=None, return_path=None):
 	''' Callback task in case idp calculation finishes succesfully. '''
-
-	print('########### calc_run_finished called #######################')
-	logging.debug ('######################## idp calculation finished :-)) ################################')
+	#msg = '##### calc_run_finished() called for idp-run '+ str(run_id) + ' #####'
+	#print(msg)
+	logging.info ('##### idp calculation for run_id %s is finished :-)) #####', str(run_id))
 	logging.info ('args[0]=', args[0], '+++++++++++++++++' )
 	try:
 		logging.info ('args[1]=', args[1], '+++++++++++++++++' )
@@ -122,7 +122,7 @@ def calc_run_finished(*args, run_id=None, return_host=None, return_path=None):
 		try:
 			ci = Calc.objects.get(id=run_id)			### django-DB connection can be lost after errors during calc run
 		except OperationalError:
-			logging.warn ('\n ############ close and restore damaged DB connections #############\n')
+			logging.warn ('##### close and restore damaged DB connections #####')
 			for conn in connections.all():
 				conn.close_if_unusable_or_obsolete()			### close damaged DB connections
 
@@ -235,7 +235,7 @@ class MyCalcTask(Task):
 
 		# next 2 lines with waitcmd = TESTCASE: simulate long running calc and wait some time 
 		# comment them out, if you are not running this TESTCASE
-		#waitcmd = 'sleep 30; '
+		#waitcmd = 'sleep 20; '
 		#command = waitcmd + catcmd + infilepath + cmd2 + ctype + cmd3
 		### End of TESTCASE		
 
