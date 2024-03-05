@@ -23,7 +23,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # See https://docs.djangoproject.com/en/2.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'g3_hec@ui!1n#82_wic*yqw13pzzn5bb9ed6i2ig_-h@r!tf^-'
+secret_key = os.getenv('STEX_SECRET_KEY', "SetABetterSecretKey")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
@@ -86,16 +86,16 @@ WSGI_APPLICATION = 'idp3_async_api_djproj.wsgi.application'
 
 DATABASES = {
     'default': {
-        'NAME': 'idp3api_v1',
+        'NAME': os.getenv("STEX_DBNAME"), 
         'ENGINE':  'django.db.backends.mysql',
-        'USER': 'idp',
-        #'PASSWORD': os.getenv("MYSQL_PASSW"),  # Your db password. 
-        'PASSWORD': 'ChangeMe',  		     
-        #'HOST': 'idp3_async_api_djproj-mysql-1',
-        'HOST': 'mysql',           # Host, leave blank if db is on local computer; 
-                                   # [PF: but set it if the DB is in another docker container] 
-        'PORT': '3306',            # Port to your db. Can be left blank
-        'OPTIONS': {'charset': 'utf8mb4'}                
+        'USER': os.getenv("STEX_DBUSER"),
+        'PASSWORD': os.getenv("STEX_DBPASSW"),  # Your db password.      
+        'HOST': os.getenv("STEX_DBHOST"),       # Host, leave blank if db is on local computer; 
+                                                # but set it to the related docker service name 
+                                                # if the DB is in another docker container
+        'PORT':  os.getenv("STEX_DBPORT"),      # Port to your db. Can be left blank, if default port is used
+        'OPTIONS': {'charset': 'utf8mb4'}
+        #'OPTIONS': {'charset': 'utf8mb4', 'collation': 'utf8mb4_unicode_ci'} ### 2b-tested
     }
 }
 
@@ -155,8 +155,8 @@ USE_L10N = False
 STATIC_URL = '/static/'
 
 # celery  configuration 
-CELERY_BROKER_URL = 'redis://redis:6379'
-CELERY_RESULT_BACKEND = 'redis://redis:6379'
+CELERY_BROKER_URL = os.getenv("STEX_REDIS")
+CELERY_RESULT_BACKEND = os.getenv("STEX_REDIS")
 CELERY_ACCEPT_CONTENT = ['application/json']
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TASK_SERIALIZER = 'json'

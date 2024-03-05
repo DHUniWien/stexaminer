@@ -1,18 +1,19 @@
 version: '3'
 services:
+    # database:
     mysql:
         image: "mysql:8"     ### 8.0.32-1.el8 was used, but rised: django.db.utils.OperationalError: (1118, 'Row size too large. 
                                  ### The maximum row size for the used table type, not counting BLOBs, is 65535. 
                                  ###This includes storage overhead, check the manual. You have to change some columns to TEXT or BLOBs')
         restart: always
         environment:
-            #MYSQL_PASSWORD: "${MYSQL_PASSW}"
-            MYSQL_PASSWORD: "ChangeMe"
-            MYSQL_USER: "idp"
+            MYSQL_PASSWORD: "${STEX_DBPASSW}"
+            MYSQL_USER: "${STEX_DBUSER}"
             MYSQL_RANDOM_ROOT_PASSWORD: "YES"
-            MYSQL_DATABASE: "idp3api_v1"
+            MYSQL_DATABASE: "${STEX_DBNAME}"
         command: ['--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci']
 
+    # Redis server is used as message broker and result-store for celery
     redis: 
         image: "redis:alpine"   ### version 4.3.4 fits to celery 5.2.
         restart: always
@@ -26,24 +27,20 @@ services:
         command:
             redis-server /usr/local/etc/redis/redis.conf
 
-    #django_celery_idp:
+    #django server + celery as some kind of wrapper for idp:
     idp:
         build: .
         restart: always
-        environment:
-            #MYSQL_PASSW: "${MYSQL_PASSW}"
-            #MYSQL_PASSWORD: "${MYSQL_PASSW}"
-            MYSQL_PASSWORD: "ChangeMe"
-            MYSQL_PASSW: "ChangeMe"
         depends_on:
         - mysql
         - redis
-
+        env_file:
+            - .env
         ports:
             - "127.0.0.1:8000:8000"   
-            - "127.0.0.1:3000:3000"         ### needed for debugging only
+            #- "127.0.0.1:3000:3000"         ### needed for debugging only
 
-
+    # testing client:
     client:
         build: client/
         restart: always
@@ -53,10 +50,5 @@ services:
             - ./client:/src/app
         ports:
             - "127.0.0.1:8001:8001"
-        #profiles:
-        #    - testing
-
-##networks:
-##  default:
-##    external: true
-##    name: idp3_async_api_djproj_default
+        profiles:
+            - testing
