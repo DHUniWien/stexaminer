@@ -12,6 +12,7 @@ WORKDIR /home/idp
 COPY manage.py .
 COPY docker-entrypoint.sh .
 COPY requirements.txt .
+COPY wait-for-it.sh .
 
 #======================== install tools ================================
 RUN apt-get update && apt-get -y install graphviz libgraphviz-dev pkg-config wget libffi-dev libssl-dev curl vim tree python3-dev sudo 

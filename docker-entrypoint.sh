@@ -1,21 +1,32 @@
 #!/bin/bash
 
-# Wait for MySQL to come up
-echo "######### waiting 60 secs for MySQL to come up #########"
-now=$(date)
-echo $now
-sleep 60 
-echo "######### waiting finihed #########"
-now=$(date)
-echo $now
+cd /home/idp
+# Wait for the database if necessary
+if [ -n "${STEX_DBHOST}" ]; then
+    dbport=$STEX_DBPORT
+    if [ -z "${STEX_DBPORT}" ]; then
+        case $STEX_DBENGINE in
+            mysql)
+            dbport="3306"
+            ;;
+            postgresql_psycopg2)
+            dbport="5432"
+            ;;
+        esac
+    fi
+    now=$(date)
+    echo $now
+    echo "Waiting for ${STEX_DBHOST}:${dbport} to come online"
+    ./wait-for-it.sh "${STEX_DBHOST}:${dbport}" -t 60 -- echo "######### Initialising Stexaminer #########"
+fi
 
 # Do the necessary DB migrations
 echo "######### Doing database migrations #########"
 cd /home/idp
-echo "# Pack model changes into a file #"
+echo "### Pack model changes into a file ###"
 #python manage.py makemigrations
 python manage.py makemigrations api_app
-echo "# Apply those changes to the database #"
+echo "### Apply those changes to the database ###"
 #python manage.py migrate --run-syncdb
 python manage.py migrate    ### what is the difference to above?!
 
