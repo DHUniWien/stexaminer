@@ -1,10 +1,10 @@
 # stexaminer
 IDP3 based Stemma coherence calculation service, as used in Stemmaweb
 
-This project uses as it's core the idp3 knowledge base system developed in at KU Leuven:
+This project uses as it's core the idp3 knowledge base system developed at KU Leuven:
 https://dtai.cs.kuleuven.be/pages/software/idp/idp
 https://dtai.cs.kuleuven.be/pages/software/idp/try
-The IDP-scripts for stemmatological usage have also been developed there
+The IDP-scripts for stemmatological usage have also been developed there.
 
 The Digital Humanities Group at the University of Vienna built around this idp3 core a Django web app with a REST-API towards Stemmaweb, using Celery for task queueing and including a database which stores the requests and results.
 The whole application is distributed on 4 interworking Docker containers.
@@ -13,7 +13,7 @@ The whole application is distributed on 4 interworking Docker containers.
 
 Stexaminer is a Python 3 / Django web app, with external dependencies on an SQL server and Redis. 
 
-To run the service , first create a `.env` file according to the pattern found in `.env.example` in this directory, setting appropriate values for at least `STEX_DBENGINE`, `STEX_DBNAME`, `STEX_DBUSER`, `STEX_DBPASS`, and `STEX_SECRET_KEY`. You can then start the service with the provided docker-compose file, or manually.
+To run the service , first create a `.env` file according to the pattern found in `.env.example` in this directory, setting appropriate values for at least `STEX_DBENGINE`, `STEX_DBNAME`, `STEX_DBUSER`, `STEX_DBPASSW`, and `STEX_SECRET_KEY`. You can then start the service with the provided docker-compose file, or manually.
 
 If you are using Docker, you can now run the command `docker compose up` in this directory. Three containers should start:
 
@@ -36,7 +36,7 @@ Without using the stexaminer testing client (see above), you can send to stexami
     http --json POST http://127.0.0.1:8000/calc-items/ < requests/03_findClasses.json
 Stexaminer will return the calculation result in json format
 
-Usually the requests are sent from stemmaweb to texaminer.
+Usually the requests are sent from stemmaweb to stexaminer.
     
 If you are running the stexaminer testing client, you can make the following requests to test stexaminer's functionality:
     curl -X POST http://localhost:8001/request/01_findGroupings

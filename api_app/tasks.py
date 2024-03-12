@@ -181,7 +181,7 @@ class MyCalcTask(Task):
 
 	def run(self, **kwargs):
 		self.__init__(**kwargs)
-		logging.info('############### logging: MycalcTask run() called ################# \n')
+		logging.info('############### logging: MycalcTask run() called ################# ')
 		with open('/home/idp/logs/MyCalcTask.log', 'a') as f:
 			f.write("\n write-appending to this file\n")
 		# logging.info("\nrun_calctype = {self.calctype}, \n run_data = {self.data} \n\n")
@@ -220,9 +220,8 @@ class MyCalcTask(Task):
 
 		"""
 		### On Python 3.7 or higher, if we pass in capture_output=True to subprocess.run(), the CompletedProcess object returned by run() will 
-		### contain the stdout (standard output) and stderr (standard error) output of the subprocess:
+		### contain the stdout (standard output) and stderr (standard error) output of the subprocess.
 		#res = subprocess.run(command, capture_output=True, text=True, shell = True)  ### security caveat when using shell=True ?
-
 		"""
 
 		result_dir = os.path.join(unique_working_dir, "result", "")
@@ -259,11 +258,6 @@ class MyCalcTask(Task):
 		###  we can use subprocess.Popen instead.
 		#return	(res.returncode, result, self.run_id)
 
-		#print("######################")
-		#print (self.obj_id)
-		#print("######################")
-
-
 		ci = Calc.objects.get(id=self.obj_id)
 		ci.calc_end = datetime.datetime.now()
 		ci.finished = True
@@ -272,10 +266,10 @@ class MyCalcTask(Task):
 		match_err = re.search("[Ee]rror:", res.stderr)
 		match_warn = re.search("[Ww]arning:", res.stderr)
 		
-		### Uncomment the next 2 lines for testcase: error
+		### Uncomment the next 2 lines for testcase: intended error here
 		#match_err = True
 		#res.stderr = " I am a testcase error"
-		### End of Testcase: error
+		### End of testcase: intended error here
 		
 		if match_err != None:
 			answer = f"error: {res.stderr}"			
@@ -284,21 +278,16 @@ class MyCalcTask(Task):
 			ci.save(update_fields=['calc_status', 'error_msg', 'calc_end', 'finished'])
 			logging.error(answer)
 			raise Exception (answer)
-			#return	(answer)
- 				
 
 		if ((res.stderr == "") or match_warn or (res.stdout != "")):
-			answer = f"result: {res.stdout}"			
+			answer = res.stdout
 			ci.calc_status = settings.STATUS_CODES['finished']			
-			#ci.result_path = result_dir
 			ci.result_path = os.path.join (result_dir, "_result.json")
 			ci.save(update_fields=['calc_status', 'result_path', 'calc_end', 'finished'])
 			if match_warn:
 				ci.warning_msg = res.stderr	### 2bchecked: are warnings separated from errors?
 				ci.save(update_fields=['warning_msg'])
 				logging.warning(res.stderr)
-			#os.chdir(result_dir)
-			#resultfile = self.run_id + "_result.json"
 			with open(ci.result_path, "w") as fp:
 				json.dump(res.stdout, fp) 
 			return	(answer)

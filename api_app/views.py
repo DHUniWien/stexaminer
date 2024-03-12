@@ -18,9 +18,10 @@ import re
 import codecs
 import logging
 
-logging.basicConfig(level=logging.DEBUG, file='/home/idp/logs/View.log', filemode='a', format='%(asctime)s-%(levelname)s-%(message)s')
-logging.info('Starting logging into this View.log\n')
-with open('/home/idp/logs/view.log', 'a') as f:
+#logging.basicConfig(level=logging.DEBUG, file='/home/idp/logs/View.log', filemode='a', format='%(asctime)s-%(levelname)s-%(message)s')
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s-%(levelname)s-%(message)s')
+logging.info('Starting logging into this View.log')
+with open('/home/idp/logs/view2.log', 'a') as f:
 		f.write("\n Start write-appending into this view file\n")
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -63,6 +64,27 @@ class CalcRequest(View):
         #    2 -> B;   2 -> C;   3 -> F;   3 -> H;   4 -> 5;   4 -> D;   5 -> 7;   5 -> K;   5 -> Q;   7 -> E;   7 -> G;
         #    B -> P;   B -> S;   "α" -> A;   "α" -> T;   "α" -> "δ";   "γ" -> 3;   "γ" -> 4;   "δ" -> 2;   "δ" -> "γ"; }'
         
+
+        ###  if results exist for the current request already in the database then do not re-calculate but
+        ###  take results from DB and send the gathered results to the requester:
+        results_from_db = []
+        request_id = 0
+        try:
+            logging.info('##### Checking if requested input groupings already exist in the database: %s', groups)
+            for element in groups:
+                retrieved = Results.objects.get(grouping=element)   ### type(retrieved): <class 'api_app.models.Results'>
+                if (retrieved.stemmastring == stem_string) and (retrieved.algorithm == req_calcType):
+                     ### take only results if the stemmastrings from DB and from request are the same
+                     ### and if the calculation type / algorithm are the same in the DB and in the request
+                    results_from_db.append(retrieved.result)
+            logging.info('##### received a request which is the same as an earlier request stored with id %i in the database. The retrieved result is: %s', request_id, str(results_from_db))
+            return JsonResponse({"Your result":str(results_from_db)}, status=201)
+
+        except Results.DoesNotExist:
+            #logging.info(''##### A grouping sent in the request is not yet stored in the database')
+            pass
+
+
         calc_data = {
             'input_data': idp_content,    ### raw
             'calculation_type': req_calcType,
@@ -102,13 +124,12 @@ class CalcRequest(View):
             return JsonResponse({"Feedback ":"The calculation is ongoing, please request the result/status later"}, status=201)
         else:
             result = result.rstrip('\n') ### remove trailing newline
-            result = result.split(":", 1) ### split at ':' after 'result';       1: do no further splits
-            
-            res_trees = json.loads(result[1])
+            res_trees = json.loads(result)
             tree_count = len(res_trees)
 
+            ### store each grouping pair together with the stemmastring in a distinct database record:
             c = 0
-            while c < tree_count:                    ### don't want to just check: "while tree_count"  would store res_data in reverse order into DB later
+            while c < tree_count:                    ### don't want to just check: "while tree_count:"  - this would store res_data in reverse order into DB later
 
                 res_data = {
                     'calc_id': calc_instance,        ### foreign key towards the Calc table; cannot be just an int.
@@ -121,7 +142,7 @@ class CalcRequest(View):
                 c += 1
             
 
-            return JsonResponse({"Your result ":str(result)}, status=201)
+            return JsonResponse({"Your result":str(result)}, status=201)
 
 
 
