@@ -89,7 +89,7 @@ class CalcRequest(View):
             'input_data': idp_content,    ### raw
             'calculation_type': req_calcType,
             'calc_start': datetime.now(),
-            'calc_end': datetime.now(),
+            'calc_end': '9999-12-31 23:59', ### Can't use the value 'None' because it leads to a DB error
             'calc_status': settings.STATUS_CODES['not_started'],
             'error_msg': "",
             'warning_msg': "",
