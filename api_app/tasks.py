@@ -169,15 +169,21 @@ def calc_run_finished(*args, run_id=None, return_host=None, return_path=None):
 			logging.warn("Attempt to return response to %s got an error: %d %s" % (targeturl, r.status_code, r.text))
 
 
+def remove_temp_files(directory_name):
+	for file_name in os.listdir(directory_name):
+		pathed_file = directory_name + file_name
+		if ".idp" in file_name:			### *.idp script files
+			os.remove(pathed_file)
+		elif (file_name == "json.lua"):
+			os.remove(pathed_file)	
 
 
 class MyCalcTask(Task):
 	def __init__(self, **kwargs):
 		self.data = kwargs.pop('d', None)
 		self.calctype = kwargs.pop('c', None)
-		self.obj_id = kwargs.pop('obj_id', None)
+		self.run_id = kwargs.pop('obj_id', None)
 		logging.basicConfig(level=logging.DEBUG, file='/home/idp/logs/MyCalcTask.log', filemode='a', format='%(asctime)s-%(levelname)s-%(message)s')
-
 
 	def run(self, **kwargs):
 		self.__init__(**kwargs)
@@ -188,26 +194,25 @@ class MyCalcTask(Task):
 		#print("\nrun_calctype = ",self.calctype)
 		#print("\nrun_data = ",self.data)
 		
-		self.run_id = utils.id_generator()					### e.g.: 'EPTUKTXQ'
-		filename = "in_data.json" 
-		### create a unique working- & result directory		### 2check: remove working dir after calculation is finished?
-		#base_dir = os.path.dirname(infile_path)	
-		base_dir = "/home/idp/"                 
+		self.uniq_id = utils.id_generator()					### e.g.: 'EPTUKTXQ'
+		infilename = str(self.run_id) + "_indata.json" 
+	
+		results_dir = os.path.dirname("/home/idp/results")
 		script_dir = "/home/idp/idp_scripts/" 
-		stamped =  datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + self.run_id	### e.g.: '20230116-171934-EPTUKTXQ'
-		unique_working_dir = os.path.join(base_dir, stamped, "")   ### the last path component is empty, hence a directory separator ('/') will 
+		unique_dir =  datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + self.uniq_id	### e.g.: '20230116-171934-EPTUKTXQ'
+		working_dir = os.path.join(results_dir, unique_dir, "")   ### the last path component is empty, hence a directory separator ('/') will 
 																   ### be put at the end along with the concatenated value												
-		os.mkdir(unique_working_dir)
-		os.chdir(unique_working_dir)
+		os.mkdir(working_dir)
+		os.chdir(working_dir)
 
-		infilepath = os.path.join(unique_working_dir, filename)
+		infilepath = os.path.join(working_dir, infilename)
 
 		### copy idp scripts and lua file to working dir for temporary usage
 		# fetch all files
 		for file_name in os.listdir(script_dir):
 			# construct full file path
 			source = script_dir + file_name
-			destination = unique_working_dir + file_name
+			destination = working_dir + file_name
 			# copy only files
 			if os.path.isfile(source):
 				shutil.copy(source, destination)
@@ -224,9 +229,6 @@ class MyCalcTask(Task):
 		#res = subprocess.run(command, capture_output=True, text=True, shell = True)  ### security caveat when using shell=True ?
 		"""
 
-		result_dir = os.path.join(unique_working_dir, "result", "")
-		os.mkdir(result_dir)
-
 		catcmd = 'cat '
 		cmd2 = ' | idp -e "exec('
 		cmd3 = ')" main.idp'
@@ -240,29 +242,16 @@ class MyCalcTask(Task):
 
 		### Here we call the idp app as an external command line application:		
 		res = subprocess.run(command, capture_output=True, text=True, shell = True)
-
-		"""
-		if res.returncode != 0:
-			result = res.stderr 
-			### ToDo: implement logging into file
-		else:
-			result = res.stdout
-			os.chdir(result_dir)
-			resultfile = self.run_id + "_result.json"
-			with open(resultfile, "w") as fp:
-				json.dump(result, fp) 
-		"""
 		
 		### Because subprocess.run() waits for the command to finish running before returning, we'll receive the entire contents 
 		### of stdout and stderr as a whole only after the command has completed. If we need to stream output as it appears in real time,
 		###  we can use subprocess.Popen instead.
 		#return	(res.returncode, result, self.run_id)
 
-		ci = Calc.objects.get(id=self.obj_id)
+		ci = Calc.objects.get(id=self.run_id)
 		ci.calc_end = datetime.datetime.now()
 		ci.finished = True
 		match_err = None
-		#if res.stderr != "":
 		match_err = re.search("[Ee]rror:", res.stderr)
 		match_warn = re.search("[Ww]arning:", res.stderr)
 		
@@ -277,12 +266,14 @@ class MyCalcTask(Task):
 			ci.error_msg = res.stderr
 			ci.save(update_fields=['calc_status', 'error_msg', 'calc_end', 'finished'])
 			logging.error(answer)
+			remove_temp_files(working_dir)
 			raise Exception (answer)
 
 		if ((res.stderr == "") or match_warn or (res.stdout != "")):
 			answer = res.stdout
-			ci.calc_status = settings.STATUS_CODES['finished']			
-			ci.result_path = os.path.join (result_dir, "_result.json")
+			ci.calc_status = settings.STATUS_CODES['finished']	
+			res_file = str(self.run_id) + "_result.json"	
+			ci.result_path = os.path.join (working_dir, res_file)   ### maybe, later not needed, since results are stored in DB
 			ci.save(update_fields=['calc_status', 'result_path', 'calc_end', 'finished'])
 			if match_warn:
 				ci.warning_msg = res.stderr	### 2bchecked: are warnings separated from errors?
@@ -290,7 +281,13 @@ class MyCalcTask(Task):
 				logging.warning(res.stderr)
 			with open(ci.result_path, "w") as fp:
 				json.dump(res.stdout, fp) 
+
+			### remove temporary script files; 
+			### keep unique working_dir with in_data.json + result.json file; may be removed later as well since results are stored in database
+			remove_temp_files(working_dir)
+
 			return	(answer)
+	
 
 		
 MyCalcTask = celery_app.register_task(MyCalcTask())
