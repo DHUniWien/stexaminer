@@ -60,13 +60,12 @@ def calc_run_error(*args, run_id=None, return_host=None, return_path=None):
 
 	if ci.calc_status == settings.STATUS_CODES['running']:
 		error_message = args[1]
-		print ("###################  errMsg = ", error_message)
 		if error_message == "":
-			error_message ="errorBack calc_run_error () did not receive the error msg in args[1]"
-		print ("###################  errMsg = ", error_message)
+			error_message ="errorBack calc_run_error() did not receive the error msg in args[1]"
+		print (f"########  errMsg =  {error_message} ###")   ### will be logged as WARNING by ForkPoolWorker
 		ci.calc_status = settings.STATUS_CODES['failure']
 		ci.error_msg = error_message   ### for later usage in /views.py/jobstatus()
-	else:									### else: status 'failure' was already set earlier
+	else:							   ### else: status 'failure' was already set earlier
 		error_message = ci.error_msg
 
 	ci.calc_end = datetime.datetime.now()
@@ -187,7 +186,7 @@ class MyCalcTask(Task):
 
 	def run(self, **kwargs):
 		self.__init__(**kwargs)
-		logging.info('############### logging: MycalcTask run() called ################# ')
+		#logging.info('############### logging: MycalcTask run() called ################# ')
 		with open('/home/idp/logs/MyCalcTask.log', 'a') as f:
 			f.write("\n write-appending to this file\n")
 		# logging.info("\nrun_calctype = {self.calctype}, \n run_data = {self.data} \n\n")
@@ -251,7 +250,7 @@ class MyCalcTask(Task):
 		ci = Calc.objects.get(id=self.run_id)
 		ci.calc_end = datetime.datetime.now()
 		ci.finished = True
-		match_err = None
+		match_err, match_warn = None, None
 		match_err = re.search("[Ee]rror:", res.stderr)
 		match_warn = re.search("[Ww]arning:", res.stderr)
 		
@@ -259,7 +258,7 @@ class MyCalcTask(Task):
 		#match_err = True
 		#res.stderr = " I am a testcase error"
 		### End of testcase: intended error here
-		
+
 		if match_err != None:
 			answer = f"error: {res.stderr}"			
 			ci.calc_status = settings.STATUS_CODES['failure']
@@ -267,7 +266,7 @@ class MyCalcTask(Task):
 			ci.save(update_fields=['calc_status', 'error_msg', 'calc_end', 'finished'])
 			logging.error(answer)
 			remove_temp_files(working_dir)
-			raise Exception (answer)
+			raise Exception (answer)    ### sets the status of the MyCalcTask()-result [see execute_calc.py] to "FAILURE"
 
 		if ((res.stderr == "") or match_warn or (res.stdout != "")):
 			answer = res.stdout
@@ -286,7 +285,7 @@ class MyCalcTask(Task):
 			### keep unique working_dir with in_data.json + result.json file; may be removed later as well since results are stored in database
 			remove_temp_files(working_dir)
 
-			return	(answer)
+			return(answer)
 	
 
 		

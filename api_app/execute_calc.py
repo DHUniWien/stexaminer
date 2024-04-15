@@ -5,6 +5,8 @@ from celery import signature
 import logging
 from time import sleep
 from . settings import WAIT_FOR_IDPRESULT
+from . models import Calc
+from . import settings
 
 
 logging.basicConfig(level=logging.INFO, file='/home/idp/logs/executeCalc.log', filemode='a', format='%(asctime)s-%(levelname)s-%(message)s')
@@ -42,19 +44,26 @@ def run_calc(**kwargs):
     #   link = calc_run_finished.signature(kwargs = {'run_id': run_id, 'return_host': return_host , 'return_path': return_path}) ,
     #   link_error = calc_run_error.signature(kwargs = {'run_id': run_id, 'return_host': return_host , 'return_path': return_path}))   
 
-    #logging.info('###### the immediate asynced status is: %s %s', res.status, '#####')
-
-    if res.status in ("FAILURE","SUCCESS"):
+    if res.status == "FAILURE":     ### set by tasks.py/run()/... raise Exception()
+        ci = Calc.objects.get(id=run_id)
+        logging.error('### celery task %s for idp-run %s is finished with failure: %s', res.id, run_id, ci.error_msg )
+        a_synced_res = None
+    elif res.status == "SUCCESS":
         logging.info('###### celery task %s for idp-run %s is finished', res.id, run_id)
         a_synced_res = res.get()
     elif (res.status == "PENDING"):  ### means the same as status STATUS_CODES[running] in settings.py
         sleep(WAIT_FOR_IDPRESULT)    ### Wait for the task to possibly finish after this (short) time
         if res.ready():
-            logging.info('###### celery task %s for idp-run %s is finished', res.id, run_id)
-            a_synced_res = res.get() ### fetch the result & status, etc,  again
+            if res.status == "FAILURE":     ### set by tasks.py/run()/... raise Exception()
+                ci = Calc.objects.get(id=run_id)
+                logging.error('###### celery task %s for idp-run %s is finished with failure: %s', res.id, run_id, ci.error_msg )
+                a_synced_res = None
+            elif res.status == "SUCCESS":
+                logging.info('###### celery task %s for idp-run %s is finished', res.id, run_id)
+                a_synced_res = res.get() ### fetch the result & status, etc,  again
         else:
             a_synced_res = None      ### the task is still ongoing
     else:  ### prepared for not yet discovered/received status
-        logging.info('##### The not yet discovered status of the idp-run %s is: ', res.status)
+        logging.info('##### The not yet discovered status of the idp-run is: %s ', res.status)
         a_synced_res = None          ### possibly to be handled differently
     return a_synced_res

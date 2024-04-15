@@ -123,8 +123,14 @@ class CalcRequest(View):
         ###          [[["A","F","H","K","P","S"],["C","D","E","Q","T"]],false],
         ###          [[["A","C","E","F","H","K","T"],["D","P","Q","S"]],false]]\n'   
 
+        ### retrieve instance again from DB because it's status probably has been changed during the calculation:
+        ci = Calc.objects.get(id=calc_instance.id)  
+
         if (result == None):
-            return JsonResponse({"Feedback ":"The calculation is ongoing, please request the result/status later"}, status=201)
+            if ci.calc_status == settings.STATUS_CODES['running']:
+                return JsonResponse({"Feedback ":"The calculation is ongoing, please request the result/status later"}, status=201)
+            elif ci.calc_status == settings.STATUS_CODES['failure']:
+                return JsonResponse({"Failure": ci.error_msg}, status=500)
         else:
             result = result.rstrip('\n') ### remove trailing newline
             res_trees = json.loads(result)
