@@ -73,10 +73,12 @@ class CalcRequest(View):
             logging.info('##### Checking if requested input groupings already exist in the database: %s', groups)
             for element in groups:
                 retrieved = Results.objects.get(grouping=element)   ### type(retrieved): <class 'api_app.models.Results'>
+                #2b checked later, if retrieved.calc_id.id stayed the same! Don't mix same groupings from different requests!
                 if (retrieved.stemmastring == stem_string) and (retrieved.algorithm == req_calcType):
                      ### take only results if the stemmastrings from DB and from request are the same
                      ### and if the calculation type / algorithm are the same in the DB and in the request
                     results_from_db.append(retrieved.result)
+                request_id = retrieved.calc_id.id
             logging.info('##### received a request which is the same as an earlier request stored with id %i in the database. The retrieved result is: %s', request_id, str(results_from_db))
             return JsonResponse({"Your result":str(results_from_db)}, status=201)
 
@@ -106,6 +108,7 @@ class CalcRequest(View):
         ci.save(update_fields=['calc_status', 'calc_start'])
 
         result = None
+        ### Run the calculation:
         result = run_calc(d=idp_content, c=req_calcType, obj_id=calc_instance.id, h=ret_host, p=ret_path) 
 
         ### commented out because this is probably better done in tasks.py/MyCalcTask:
