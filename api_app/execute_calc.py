@@ -8,8 +8,8 @@ from . settings import WAIT_FOR_IDPRESULT
 from . models import Calc
 from . import settings
 
+#logging.basicConfig(level=logging.INFO, filename='/home/idp/logs/executeCalc.log', filemode='a', format='%(asctime)s-%(levelname)s-%(message)s')
 
-logging.basicConfig(level=logging.INFO, file='/home/idp/logs/executeCalc.log', filemode='a', format='%(asctime)s-%(levelname)s-%(message)s')
 def run_add(a,b):
     """
     a toy function to quickly check the basic usage of the celery framework for asynchronuous task execution
@@ -49,7 +49,7 @@ def run_calc(**kwargs):
         logging.error('### celery task %s for idp-run %s is finished with failure: %s', res.id, run_id, ci.error_msg )
         a_synced_res = None
     elif res.status == "SUCCESS":
-        logging.info('###### celery task %s for idp-run %s is finished', res.id, run_id)
+        logging.info('###### celery task %s for idp-run %s is finished with SUCCESS', res.id, run_id)
         a_synced_res = res.get()
     elif (res.status == "PENDING"):  ### means the same as status STATUS_CODES[running] in settings.py
         sleep(WAIT_FOR_IDPRESULT)    ### Wait for the task to possibly finish after this (short) time
@@ -59,7 +59,7 @@ def run_calc(**kwargs):
                 logging.error('###### celery task %s for idp-run %s is finished with failure: %s', res.id, run_id, ci.error_msg )
                 a_synced_res = None
             elif res.status == "SUCCESS":
-                logging.info('###### celery task %s for idp-run %s is finished', res.id, run_id)
+                logging.info('###### celery task %s for idp-run %s is finished with SUCCESS', res.id, run_id)
                 a_synced_res = res.get() ### fetch the result & status, etc,  again
         else:
             a_synced_res = None      ### the task is still ongoing

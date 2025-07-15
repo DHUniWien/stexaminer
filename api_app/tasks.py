@@ -11,6 +11,7 @@ from subprocess import run
 from . import settings
 import re
 import json
+import ast	### Python's Abstract Syntax Tree module
 import logging
 import requests
 from requests.exceptions import SSLError, HTTPError
@@ -24,7 +25,7 @@ from celery import Celery, Task, shared_task
 from  idp3_async_api_djproj.celery import celery_app
 app = Celery('tasks')
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s-%(levelname)s-%(message)s')
+logging.basicConfig(level=logging.DEBUG, filename='/home/idp/logs/task.log', format='%(asctime)s-%(levelname)s-%(message)s')
 
 
 @shared_task	
@@ -38,7 +39,7 @@ def calc_run_error(*args, run_id=None, return_host=None, return_path=None):
 		- args[2]: empty or Traceback
 	'''
 	#print ('######################## idp calculation failed :-(( ################################')
-	#logging.basicConfig(level=logging.DEBUG, file='/home/idp/logs/errorBack.log', format='%(asctime)s-%(levelname)s-%(message)s')
+	#logging.basicConfig(level=logging.DEBUG, filename='/home/idp/logs/errorBack.log', format='%(asctime)s-%(levelname)s-%(message)s')
 	logging.info("\n celery task request infos = {args[0]}, \n exception/error text = {args[1]} \n\n")
 	logging.error ('######################## idp calculation failed :-(( ################################')
 	logging.info ('args[0]=', args[0], '+++++++++++++++++' )
@@ -106,14 +107,11 @@ def calc_run_error(*args, run_id=None, return_host=None, return_path=None):
 @shared_task
 def calc_run_finished(*args, run_id=None, return_host=None, return_path=None):
 	''' Callback task in case idp calculation finishes succesfully. '''
-	#msg = '##### calc_run_finished() called for idp-run '+ str(run_id) + ' #####'
-	#print(msg)
-	logging.info ('##### idp calculation for run_id %s is finished :-)) #####', str(run_id))
-	logging.info ('args[0]=', args[0], '+++++++++++++++++' )
+
 	try:
-		logging.info ('args[1]=', args[1], '+++++++++++++++++' )
+		logging.info ('reported errors or warnings:', args[1], '+++++++++++++++++' )
 	except IndexError:   ### i.e. args[1] does not exist, because no errors occured
-		#logging.info ('######## No errors occured ##########\n')
+		logging.info (f'######## No errors occured during calulation of run_id {run_id} ##########')
 		pass
 
 	if ((return_host!=None) & (return_path!=None)):  ### for later usage, if these 2 parameters are provided with the request
@@ -168,6 +166,31 @@ def calc_run_finished(*args, run_id=None, return_host=None, return_path=None):
 			logging.warn("Attempt to return response to %s got an error: %d %s" % (targeturl, r.status_code, r.text))
 
 
+def flex_parse(data):
+    """
+    Attempts to convert a string into a Python object using either JSON or ast.literal_eval.
+    If the input is already a Python object, it is returned unchanged.
+    """
+    if not isinstance(data, str):
+        # already a Python object
+        return data
+
+    # first try to convert a JSON data structure into a dictionary
+    try:
+        return json.loads(data)
+    except json.JSONDecodeError:
+        pass
+
+    # then try to safely convert string-based data into Python object(s)
+    try:
+        return ast.literal_eval(data)
+    except (ValueError, SyntaxError):
+        pass
+
+    # if parsing fails, return the original string
+    return data
+
+
 def remove_temp_files(directory_name):
 	for file_name in os.listdir(directory_name):
 		pathed_file = directory_name + file_name
@@ -186,16 +209,8 @@ class MyCalcTask(Task):
 
 	def run(self, **kwargs):
 		self.__init__(**kwargs)
-		#logging.info('############### logging: MycalcTask run() called ################# ')
-		with open('/home/idp/logs/MyCalcTask.log', 'a') as f:
-			f.write("\n write-appending to this file\n")
-		# logging.info("\nrun_calctype = {self.calctype}, \n run_data = {self.data} \n\n")
-		#print("\nrun_calctype = ",self.calctype)
-		#print("\nrun_data = ",self.data)
-		
 		self.uniq_id = utils.id_generator()					### e.g.: 'EPTUKTXQ'
 		infilename = str(self.run_id) + "_indata.json" 
-	
 		results_dir = os.path.dirname("/home/idp/results")
 		script_dir = "/home/idp/idp_scripts/" 
 		unique_dir =  datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + self.uniq_id	### e.g.: '20230116-171934-EPTUKTXQ'
@@ -247,6 +262,9 @@ class MyCalcTask(Task):
 		###  we can use subprocess.Popen instead.
 		#return	(res.returncode, result, self.run_id)
 
+		#logging.info('\n###### res.stdout of subprocess.run(): ===%s===#################\n', res.stdout )
+		#logging.info('\n###### res.stderr of subprocess.run(): ===%s===#################\n', res.stderr )
+
 		ci = Calc.objects.get(id=self.run_id)
 		ci.calc_end = datetime.datetime.now()
 		ci.finished = True
@@ -256,8 +274,12 @@ class MyCalcTask(Task):
 		
 		### Uncomment the next 2 lines for testcase: intended error here
 		#match_err = True
-		#res.stderr = " I am a testcase error"
+		#res.stderr = " I am a testcase error\n including a warning line"
 		### End of testcase: intended error here
+
+		if res.returncode != 0:
+			logging.error("Subprocess failed with return code %d: %s", res.returncode, res.stderr)
+			raise Exception(f"Subprocess failed with code {res.returncode}: {res.stderr}")
 
 		if match_err != None:
 			answer = f"error: {res.stderr}"			
@@ -265,11 +287,20 @@ class MyCalcTask(Task):
 			ci.error_msg = res.stderr
 			ci.save(update_fields=['calc_status', 'error_msg', 'calc_end', 'finished'])
 			logging.error(answer)
-			remove_temp_files(working_dir)
+			#remove_temp_files(working_dir)  ### better keep them for a while for debugging
 			raise Exception (answer)    ### sets the status of the MyCalcTask()-result [see execute_calc.py] to "FAILURE"
+
+		if res.stdout.strip() == "" and res.stderr.strip() == "":
+			logging.warning(f"Subprocess for run-id {self.run_id} succeeded but gave no output; that is suspicious.")
 
 		if ((res.stderr == "") or match_warn or (res.stdout != "")):
 			answer = res.stdout
+			#print (f"original Task result type is: type({answer})")
+			logging.info(f"original Task result for run_id {self.run_id}: {answer}")
+			#print("original Task result for %s: %s", self.run_id, answer)
+			parsed_answer = flex_parse(answer)
+			logging.info(f"parsed Task result for run_id {self.run_id}: {parsed_answer}")
+			#print("parsed Task result for %s: %s", self.run_id, parsed_answer)
 			ci.calc_status = settings.STATUS_CODES['finished']	
 			res_file = str(self.run_id) + "_result.json"	
 			ci.result_path = os.path.join (working_dir, res_file)   ### maybe, later not needed, since results are stored in DB
@@ -279,13 +310,15 @@ class MyCalcTask(Task):
 				ci.save(update_fields=['warning_msg'])
 				logging.warning(res.stderr)
 			with open(ci.result_path, "w") as fp:
-				json.dump(res.stdout, fp) 
+				###json.dump(res.stdout, fp)
+				json.dump(parsed_answer, fp)
 
 			### remove temporary script files; 
 			### keep unique working_dir with in_data.json + result.json file; may be removed later as well since results are stored in database
-			remove_temp_files(working_dir)
+			#remove_temp_files(working_dir)
+			### ToCheck: remove input files?
 
-			return(answer)
+			return(parsed_answer)
 	
 
 		

@@ -12,6 +12,8 @@ services:
             MYSQL_RANDOM_ROOT_PASSWORD: "YES"
             MYSQL_DATABASE: "${STEX_DBNAME}"
         command: ['--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci']
+        #volumes:			#### should be set in order not to loose DB content if the DB-container dies
+        #    - ./database/mysql/
 
     # Redis server is used as message broker and result-store for celery
     redis: 
@@ -39,7 +41,7 @@ services:
         ports:
             - "127.0.0.1:8000:8000"   
             #- "127.0.0.1:3000:3000"         ### needed for debugging only
-
+            #- "127.0.0.1:5555:5555"         ### needed for celery flower
     # testing client:
     client:
         build: client/

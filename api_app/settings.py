@@ -13,4 +13,4 @@ STATUS_CODES = {
 }
 
 ''' give idp additional time [in seconds] to finish the calculation before we answer the requester '''
-WAIT_FOR_IDPRESULT = 1
+WAIT_FOR_IDPRESULT = 2

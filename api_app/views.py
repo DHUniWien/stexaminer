@@ -8,6 +8,7 @@ from django.http import HttpResponseNotFound
 from django.http import HttpResponseBadRequest
 from django.http import JsonResponse
 import json
+from . tasks import flex_parse
 from rest_framework.decorators import api_view
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -18,11 +19,9 @@ import re
 import codecs
 import logging
 
-#logging.basicConfig(level=logging.DEBUG, file='/home/idp/logs/View.log', filemode='a', format='%(asctime)s-%(levelname)s-%(message)s')
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s-%(levelname)s-%(message)s')
-logging.info('Starting logging into this View.log')
-with open('/home/idp/logs/view2.log', 'a') as f:
-		f.write("\n Start write-appending into this view file\n")
+#logging.basicConfig(level=logging.INFO, filename='/home/idp/logs/View.log', filemode='a', format='%(asctime)s-%(levelname)s-%(message)s')
+#logging.basicConfig(level=logging.INFO, format='%(asctime)s-%(levelname)s-%(message)s')
+# instead logging here will also be written into task.log file
 
 @method_decorator(csrf_exempt, name='dispatch')
 class CalcRequest(View):
@@ -70,23 +69,26 @@ class CalcRequest(View):
         results_from_db = []
         request_id = 0
         try:
-            logging.info('##### Checking if requested input groupings already exist in the database: %s', groups)
+            #logging.info('##### Checking if requested input groupings already exist in the database: %s', groups)
             for element in groups:
                 retrieved = Results.objects.get(grouping=element)   ### type(retrieved): <class 'api_app.models.Results'>
                 #2b checked later, if retrieved.calc_id.id stayed the same! Don't mix same groupings from different requests!
                 if (retrieved.stemmastring == stem_string) and (retrieved.algorithm == req_calcType):
                      ### take only results if the stemmastrings from DB and from request are the same
                      ### and if the calculation type / algorithm are the same in the DB and in the request
-                    results_from_db.append(retrieved.result)
+                    results_from_db.append(flex_parse(retrieved.result))
                 request_id = retrieved.calc_id.id
+            ci = Calc.objects.get(id=request_id)
             logging.info('##### received a request which is the same as an earlier request stored with id %i in the database. The retrieved result is: %s', request_id, str(results_from_db))
-            return JsonResponse({"Your result":str(results_from_db)}, status=201)
+            return JsonResponse({ "jobid": request_id, "input": ci.input_data, "start time": ci.calc_start, 
+                                  "end time": ci.calc_end, "command": ci.calculation_type, "status": ci.calc_status, 
+                                  "result":results_from_db}, status=201)
 
         except Results.DoesNotExist:
-            #logging.info(''##### A grouping sent in the request is not yet stored in the database')
+            logging.info('##### A grouping sent in the request is not yet stored in the database')
             pass
 
-
+        ### Here we start to prepare the calculation:
         calc_data = {
             'input_data': idp_content,    ### raw
             'calculation_type': req_calcType,
@@ -99,7 +101,7 @@ class CalcRequest(View):
             'result_path': ""
         }
 
-        calc_instance = Calc.objects.create(**calc_data)     ### store calc_data in DB
+        calc_instance = Calc.objects.create(**calc_data)     ### store calc_data in DB and get a unique calc-id from DB
         ci = Calc.objects.get(id=calc_instance.id)
         ci.calc_start = datetime.now()
         ci.calc_status = settings.STATUS_CODES['running']
@@ -128,12 +130,17 @@ class CalcRequest(View):
 
         if (result == None):
             if ci.calc_status == settings.STATUS_CODES['running']:
-                return JsonResponse({"Feedback ":"The calculation is ongoing, please request the result/status later"}, status=201)
+                return JsonResponse({"Feedback ": f"The calculation is ongoing, please request the result/status later via the jobid {calc_instance.id}"}, status=201)
             elif ci.calc_status == settings.STATUS_CODES['failure']:
-                return JsonResponse({"Failure": ci.error_msg}, status=500)
+                return JsonResponse({ "jobid": calc_instance.id, "input": ci.input_data, "start_time": ci.calc_start, 
+                                      "end_time": ci.calc_end, "command": ci.calculation_type, "status": ci.calc_status, 
+                                      "failure": ci.error_msg}, status=500)
         else:
-            result = result.rstrip('\n') ### remove trailing newline
-            res_trees = json.loads(result)
+            if type(result) == str:         ### anyhow, expected type is list-object
+                result = result.rstrip('\n') ### remove trailing newline
+                res_trees = json.loads(result)
+            elif type(result) == list:
+                res_trees = result
             tree_count = len(res_trees)
 
             ### store each grouping pair together with the stemmastring in a distinct database record:
@@ -150,9 +157,9 @@ class CalcRequest(View):
                 result_record = Results.objects.create(**res_data)   ### store res_data in DB; create new record
                 c += 1
             
-
-            return JsonResponse({"Your result":str(result)}, status=201)
-
+            return JsonResponse({ "jobid": calc_instance.id, "input": ci.input_data, "start_time": ci.calc_start, 
+                                      "end_time": ci.calc_end, "command": ci.calculation_type, "status": ci.calc_status, 
+                                      "result": result}, status=201)
 
 
 @api_view(['GET'])
