@@ -26,7 +26,7 @@ import logging
 @method_decorator(csrf_exempt, name='dispatch')
 class CalcRequest(View):
     def post(self, request):
-        logging.info('CalcRequest View called \n')
+        #logging.info('CalcRequest View called \n')
         req = json.loads(request.body.decode("utf-8"))
         try: ### used later if return_path is provided in the request
             ret_path = req.get('return_path')   ### for the testing client: ret_path = "/result" 
@@ -71,18 +71,25 @@ class CalcRequest(View):
         try:
             #logging.info('##### Checking if requested input groupings already exist in the database: %s', groups)
             for element in groups:
-                retrieved = Results.objects.get(grouping=element)   ### type(retrieved): <class 'api_app.models.Results'>
-                #2b checked later, if retrieved.calc_id.id stayed the same! Don't mix same groupings from different requests!
-                if (retrieved.stemmastring == stem_string) and (retrieved.algorithm == req_calcType):
-                     ### take only results if the stemmastrings from DB and from request are the same
-                     ### and if the calculation type / algorithm are the same in the DB and in the request
-                    results_from_db.append(flex_parse(retrieved.result))
-                request_id = retrieved.calc_id.id
-            ci = Calc.objects.get(id=request_id)
-            logging.info('##### received a request which is the same as an earlier request stored with id %i in the database. The retrieved result is: %s', request_id, str(results_from_db))
-            return JsonResponse({ "jobid": request_id, "input": ci.input_data, "start time": ci.calc_start, 
-                                  "end time": ci.calc_end, "command": ci.calculation_type, "status": ci.calc_status, 
-                                  "result":results_from_db}, status=201)
+                # retrieved = Results.objects.get(grouping=element)   ### type(retrieved): <class 'api_app.models.Results'>
+                    ### can return this error: "Results.MultipleObjectsReturned: get() returned more than one Results -- it returned 2!"
+                retrieved = Results.objects.filter(grouping=element)  # returns a QuerySet rather than a single match
+                
+                if retrieved.exists():
+                    for retriev in retrieved:
+                        #2b checked later, if retrieved.calc_id.id stayed the same! Don't mix same groupings from different requests!
+                        if (retriev.stemmastring == stem_string) and (retriev.algorithm == req_calcType):
+                            ### take only results if the stemmastrings from DB and from request are the same
+                            ### and if the calculation type / algorithm are the same in the DB and in the request
+                            results_from_db.append(flex_parse(retriev.result))
+                        if retriev.calc_id.id != None:
+                            request_id = retriev.calc_id.id
+            if request_id != 0:
+                ci = Calc.objects.get(id=request_id)
+                logging.info('##### received a request which is the same as an earlier request stored with id %i in the database. The retrieved result is: %s', request_id, str(results_from_db))
+                return JsonResponse({ "jobid": request_id, "input": ci.input_data, "start time": ci.calc_start, 
+                                    "end time": ci.calc_end, "command": ci.calculation_type, "status": ci.calc_status, 
+                                    "result":results_from_db, "result_source": "database"}, status=201)
 
         except Results.DoesNotExist:
             logging.info('##### A grouping sent in the request is not yet stored in the database')
@@ -134,7 +141,7 @@ class CalcRequest(View):
             elif ci.calc_status == settings.STATUS_CODES['failure']:
                 return JsonResponse({ "jobid": calc_instance.id, "input": ci.input_data, "start_time": ci.calc_start, 
                                       "end_time": ci.calc_end, "command": ci.calculation_type, "status": ci.calc_status, 
-                                      "failure": ci.error_msg}, status=500)
+                                      "failure": ci.error_msg, "result_source": "algorithm"}, status=500)
         else:
             if type(result) == str:         ### anyhow, expected type is list-object
                 result = result.rstrip('\n') ### remove trailing newline
@@ -159,7 +166,7 @@ class CalcRequest(View):
             
             return JsonResponse({ "jobid": calc_instance.id, "input": ci.input_data, "start_time": ci.calc_start, 
                                       "end_time": ci.calc_end, "command": ci.calculation_type, "status": ci.calc_status, 
-                                      "result": result}, status=201)
+                                      "result": result, "result_source": "algorithm"}, status=201)
 
 
 @api_view(['GET'])
@@ -212,6 +219,44 @@ def jobstatus(request, run_id):
 												### to the white paper for stemweb?; we could also use an error field
 			msg['end_time'] = str(algo_run.calc_end)
 			return HttpResponse(json.dumps(msg))
+
+
+@api_view(['POST'])
+def delete_from_database(request, run_id):
+	if request.method == 'POST':
+		try:
+			result_queryset = Results.objects.filter(calc_id = run_id) ### filter() Method: Returns a queryset containing records
+		except Exception as e:
+			logging.error(f"queryset retrieval failed:\n {e}")
+
+		try:
+			###delete() Method: deletes all records in the queryset:
+			deleted_count, _ = result_queryset.delete()
+			logging.info (f" deleted {deleted_count} records with run_id {run_id} from results table")
+			response = HttpResponse("records deleted")
+			response.status_code = 200
+			#return response
+		except Exception as exc:
+			logging.error (f"deletion of records with run_id {run_id} in results table failed:\n {exc}")
+			response = HttpResponse("records deletion in results table failed")
+			response.status_code = 500
+			return response
+		try:
+			algo_run = None
+			algo_run = Calc.objects.get(id = run_id)
+			if algo_run != None:
+				algo_run.delete()
+				logging.info (f"deleted record in table calc with run_id {run_id}\n")
+				response.status_code = 200
+			else:
+				logging.warning (f"There was no calculation with id {run_id}, hence it could not be deleted")
+				response = HttpResponse(error_message)
+				response.status_code = 400
+				return response
+		except Exception as e:
+			logging.error(f"deletion of calc table record with run_id {run_id} failed\n")
+
+		return response
 
 
 @method_decorator(csrf_exempt, name='dispatch')

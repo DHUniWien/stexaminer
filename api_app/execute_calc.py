@@ -27,7 +27,7 @@ def run_add(a,b):
 
 
 def run_calc(**kwargs): 
-    ### kwargs filled in views.py: d=data, c=req_calcType, obj_id=calc_id, h=ret_host, p=ret_path
+    ### kwargs filled in views.py: d=data, c=req_calcType, obj_id=calc_id, h=return_host, p=return_path
     ### So far return_path and return_host are not yet received from stemmaweb, but they are prepared here
     ### in idp for later possible usage
     

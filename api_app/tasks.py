@@ -111,7 +111,7 @@ def calc_run_finished(*args, run_id=None, return_host=None, return_path=None):
 	try:
 		logging.info ('reported errors or warnings:', args[1], '+++++++++++++++++' )
 	except IndexError:   ### i.e. args[1] does not exist, because no errors occured
-		logging.info (f'######## No errors occured during calulation of run_id {run_id} ##########')
+		#logging.info (f'######## No errors occured during calulation of run_id {run_id} ##########')
 		pass
 
 	if ((return_host!=None) & (return_path!=None)):  ### for later usage, if these 2 parameters are provided with the request

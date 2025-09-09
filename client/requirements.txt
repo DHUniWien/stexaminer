@@ -1,3 +1,6 @@
 Flask
 requests
 pyopenssl
+pytest
+#debugpy
+#ptvsd  # try 4 debugging
