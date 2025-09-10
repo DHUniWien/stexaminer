@@ -18,6 +18,17 @@ jobs:
     
     - name: Build the Docker images
       run: docker compose build
+
+    - name: Create .env file
+      run: |
+          echo "STEX_REDIS=redis://redis:6379" >> .env
+          echo "STEX_DBENGINE=mysql" >> .env
+          echo "STEX_DBNAME=stexdb_v1" >> .env
+          echo "STEX_DBUSER=idp" >> .env
+          echo "STEX_DBPASSW=ChangeIt" >> .env
+          echo "STEX_DBHOST=mysql" >> .env
+          echo "STEX_DBPORT=3306" >> .env
+          echo "STEX_SECRET_KEY=someth1ngNotTr1via!" >> .env
     
     - name: start the Docker containers
       run: docker compose --profile testing up -d
