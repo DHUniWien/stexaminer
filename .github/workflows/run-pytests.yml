@@ -26,7 +26,7 @@ jobs:
       run: pip install pytest
     
     - name: Test with pytest
-    - run: coverage run -m test_idp.py  -v -s 
+      run: coverage run -m test_idp.py  -v -s 
     
     - name: Generate Coverage Report  
-    - run: coverage report -m
+      run: coverage report -m
