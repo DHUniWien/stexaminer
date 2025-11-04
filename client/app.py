@@ -13,8 +13,8 @@ A testing client app with RESTful API to send requests to the idp app and to rec
 Code re-used (& slightly adapted) from the Stemweb testing client app
 """
 
-#IDP_BASE = 'http://idp:8000'   ### for container
-IDP_BASE = 'http://localhost:8000'   ### for host-computer
+IDP_BASE = 'http://idp:8000'   ### for container
+#IDP_BASE = 'http://localhost:8000'   ### for host-computer; use it for tests on local machine
 
 # Check that we are up
 @app.get('/')
