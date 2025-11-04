@@ -34,7 +34,7 @@ jobs:
       run: docker compose --profile testing up -d
     
     - name: Install pytest
-      run: pip install pytest flask request
+      run: pip install pytest==8.4.1 flask==3.1.1 requests==2.32.4
     
     - name: Test with pytest
       run: pytest client/test_idp.py
