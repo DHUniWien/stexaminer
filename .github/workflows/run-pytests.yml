@@ -34,5 +34,5 @@ jobs:
       run: docker compose --profile testing up -d
     
     - name: Test with pytest executed within testing client container
-      run: docker exec stexaminer_client_1 bash -c "python test_idp.py"
+      run: docker exec stexaminer-client-1 bash -c "python test_idp.py"
 
