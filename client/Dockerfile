@@ -1,6 +1,5 @@
 FROM python:3.10
 WORKDIR /src/app
-RUN mkdir received
 RUN apt-get update && apt-get -y install vim tree
 COPY requirements.txt .
 COPY references .

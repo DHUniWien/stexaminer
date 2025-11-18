@@ -2,7 +2,6 @@
 .env
 env.list
 *.log
-client/received/
 client/venv/
 *.db
 .DS_Store
