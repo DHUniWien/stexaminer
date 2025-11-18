@@ -30,12 +30,9 @@ jobs:
           echo "STEX_DBPORT=3306" >> .env
           echo "STEX_SECRET_KEY=someth1ngNotTr1via!" >> .env
     
-    - name: start the Docker containers
+    - name: Start the Docker containers
       run: docker compose --profile testing up -d
     
-    - name: Install pytest
-      run: pip install pytest==8.4.1 flask==3.1.1 requests==2.32.4
-    
-    - name: Test with pytest
-      run: pytest client/test_idp.py
+    - name: Test with pytest executed within testing client container
+      run: docker exec stexaminer_client_1 bash -c "python test_idp.py"
 
