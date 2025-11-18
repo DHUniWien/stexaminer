@@ -32,6 +32,14 @@ jobs:
     
     - name: Start the Docker containers
       run: docker compose --profile testing up -d
+
+    - name: Wait for app to start
+      run: |
+           for i in {1..40}; do
+             curl -s idp:8000 && break
+             echo "Waiting..."
+             sleep 1
+           done   
     
     - name: Test with pytest executed within testing client container
       run: docker exec stexaminer-client-1 bash -c "python test_idp.py"
