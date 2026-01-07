@@ -28,6 +28,10 @@ COPY api_app api_app
 COPY idp_scripts idp_scripts
 COPY idp3-3.7.1_LinuxBinaries/usr /usr
 
+#=========== prepare idp3 binaries =======
+#   set modified-date of this config file to fix XSB build error within idp3-binaries
+RUN touch -t 201711081452 /usr/local/bin/xsb-3.7.0/config/x86_64-unknown-linux-gnu/lib/xsb_configuration.P
+
 #============ create the log directory and set owner ===============
 RUN mkdir /home/idp/logs 
 WORKDIR /home/idp/
@@ -40,7 +44,7 @@ RUN chmod 555 ./idp_scripts/*.idp
 #====================== start the server ===============================
 # EXPOSE port 3000 for debugging access from outside of the docker container,
 # EXPOSE port 8000 for the web site
-EXPOSE 3000 8000
-#EXPOSE 8000
+#EXPOSE 3000 8000
+EXPOSE 8000
 USER idp 
 ENTRYPOINT ["./docker-entrypoint.sh"]
