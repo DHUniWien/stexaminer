@@ -1,4 +1,4 @@
-FROM python:3.10
+FROM python:3.14
 WORKDIR /src/app
 RUN apt-get update && apt-get -y install vim tree
 COPY requirements.txt .

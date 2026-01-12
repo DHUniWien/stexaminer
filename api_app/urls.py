@@ -3,9 +3,6 @@ from .views import CalcRequest
 from .views import AddRequest
 from .views import jobstatus
 from .views import delete_from_database
-from django.conf.urls import url
-
-#print ("\n########## urls.py ##############\n")
 
 urlpatterns = [
     path('calc-items/', CalcRequest.as_view()),

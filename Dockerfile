@@ -1,6 +1,6 @@
 # install everything based on image "python:3.9"
 
-FROM python:3.9
+FROM python:3.14
 ENV DEBIAN_FRONTEND=noninteractive
 
 #========== create the technical user "idp" with sudo-right  =======

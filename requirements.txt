@@ -5,10 +5,10 @@ pymysql
 pygraphviz 
 graphviz
 djangorestframework
-Django==2.2.5
-celery==5.2.7
-kombu==5.3.4
-redis==4.3.4
+Django
+celery
+kombu
+redis
 
 ### for debugging
 #ptvsd 
