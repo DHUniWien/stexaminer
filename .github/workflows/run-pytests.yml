@@ -42,5 +42,5 @@ jobs:
            done   
     
     - name: Test with pytest executed within testing client container
-      run: docker exec stexaminer-client-1 bash -c "python test_idp.py"
+      run: docker exec stexaminer-client-1 pytest -v test_idp.py
 
