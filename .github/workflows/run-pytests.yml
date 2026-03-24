@@ -24,11 +24,11 @@ jobs:
           echo "STEX_REDIS=redis://redis:6379" >> .env
           echo "STEX_DBENGINE=mysql" >> .env
           echo "STEX_DBNAME=stexdb_v1" >> .env
-          echo "STEX_DBUSER=idp" >> .env
-          echo "STEX_DBPASSW=ChangeIt" >> .env
+          echo "STEX_DBUSER=${{secrets.STEX_DBUSER}}" >> .env
+          echo "STEX_DBPASSW=${{secrets.STEX_DBPASSW}}" >> .env
           echo "STEX_DBHOST=mysql" >> .env
           echo "STEX_DBPORT=3306" >> .env
-          echo "STEX_SECRET_KEY=someth1ngNotTr1via!" >> .env
+          echo "STEX_SECRET_KEY=${{secrets.STEX_SECRET_KEY}}" >> .env
     
     - name: Start the Docker containers
       run: docker compose --profile testing up -d
