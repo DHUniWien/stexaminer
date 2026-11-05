@@ -68,32 +68,29 @@ class CalcRequest(View):
         ###  take results from DB and send the gathered results to the requester:
         results_from_db = []
         request_id = 0
-        try:
-            #logging.info('##### Checking if requested input groupings already exist in the database: %s', groups)
-            for element in groups:
-                # retrieved = Results.objects.get(grouping=element)   ### type(retrieved): <class 'api_app.models.Results'>
-                    ### can return this error: "Results.MultipleObjectsReturned: get() returned more than one Results -- it returned 2!"
-                retrieved = Results.objects.filter(grouping=element)  # returns a QuerySet rather than a single match
-                
-                if retrieved.exists():
-                    for retriev in retrieved:
-                        #2b checked later, if retrieved.calc_id.id stayed the same! Don't mix same groupings from different requests!
-                        if (retriev.stemmastring == stem_string) and (retriev.algorithm == req_calcType):
-                            ### take only results if the stemmastrings from DB and from request are the same
-                            ### and if the calculation type / algorithm are the same in the DB and in the request
-                            results_from_db.append(flex_parse(retriev.result))
-                        if retriev.calc_id.id != None:
-                            request_id = retriev.calc_id.id
-            if request_id != 0:
-                ci = Calc.objects.get(id=request_id)
-                logging.info('##### received a request which is the same as an earlier request stored with id %i in the database. The retrieved result is: %s', request_id, str(results_from_db))
-                return JsonResponse({ "jobid": request_id, "input": ci.input_data, "start time": ci.calc_start, 
-                                    "end time": ci.calc_end, "command": ci.calculation_type, "status": ci.calc_status, 
-                                    "result":results_from_db, "result_source": "database"}, status=201)
-
-        except Results.DoesNotExist:
-            logging.info('##### A grouping sent in the request is not yet stored in the database')
-            pass
+        cached = True
+        #logging.info('##### Checking if requested input groupings already exist in the database: %s', groups)
+        for element in groups:
+            match = None
+            for retriev in Results.objects.filter(grouping=element):    # returns a QuerySet rather than a single match
+                #2b checked later, if retrieved.calc_id.id stayed the same! Don't mix same groupings from different requests!
+                if (retriev.stemmastring == stem_string) and (retriev.algorithm == req_calcType):
+                    ### take only results if the stemmastrings from DB and from request are the same
+                    ### and if the calculation type / algorithm are the same in the DB and in the request
+                    match = retriev
+            if match is None:
+                cached = False
+                break
+            results_from_db.append(flex_parse(match.result))
+            request_id = match.calc_id.id
+        if cached and request_id != 0:
+            ci = Calc.objects.get(id=request_id)
+            logging.info('##### received a request which is the same as an earlier request stored with id %i in the database. The retrieved result is: %s', request_id, str(results_from_db))
+            return JsonResponse({ "jobid": request_id, "input": ci.input_data, "start time": ci.calc_start,
+                                "end time": ci.calc_end, "command": ci.calculation_type, "status": ci.calc_status,
+                                "result":results_from_db, "result_source": "database"}, status=201)
+        else:
+            logging.info('##### received a request which is not yet stored in the database. The requested input groupings are: %s', str(groups))
 
         ### Here we start to prepare the calculation:
         calc_data = {
