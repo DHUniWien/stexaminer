@@ -18,6 +18,7 @@ from requests.exceptions import SSLError, HTTPError
 from . import utils
 import shutil
 from . models import Calc
+from . models import Results
 
 from django.db import connection, connections
 
@@ -299,6 +300,21 @@ class MyCalcTask(Task):
 			logging.info(f"original Task result for run_id {self.run_id}: {answer}")
 			#print("original Task result for %s: %s", self.run_id, answer)
 			parsed_answer = flex_parse(answer)
+
+            ### store each grouping pair together with the stemmastring in a distinct database record:
+			try:
+				for c in range(len(self.data['groupings'])):
+					res_data = {
+						'calc_id': ci,							### foreign key towards the Calc table; cannot be just an int.
+						'algorithm': ctype,
+						'stemmastring': self.data['graph'],
+						'grouping': self.data['groupings'][c],	### input grouping
+						'result': parsed_answer[c]				### result grouping 
+					}
+					Results.objects.create(**res_data)   ### store res_data in DB; create new record
+			except Exception as e:
+				logging.error(f"Error storing results for run_id {self.run_id}: {e}. Answer will not be cached.")
+
 			logging.info(f"parsed Task result for run_id {self.run_id}: {parsed_answer}")
 			#print("parsed Task result for %s: %s", self.run_id, parsed_answer)
 			ci.calc_status = settings.STATUS_CODES['finished']	
