@@ -140,27 +140,6 @@ class CalcRequest(View):
                                       "end_time": ci.calc_end, "command": ci.calculation_type, "status": ci.calc_status, 
                                       "failure": ci.error_msg, "result_source": "algorithm"}, status=500)
         else:
-            if type(result) == str:         ### anyhow, expected type is list-object
-                result = result.rstrip('\n') ### remove trailing newline
-                res_trees = json.loads(result)
-            elif type(result) == list:
-                res_trees = result
-            tree_count = len(res_trees)
-
-            ### store each grouping pair together with the stemmastring in a distinct database record:
-            c = 0
-            while c < tree_count:                    ### don't want to just check: "while tree_count:"  - this would store res_data in reverse order into DB later
-
-                res_data = {
-                    'calc_id': calc_instance,        ### foreign key towards the Calc table; cannot be just an int.
-                    'algorithm': req_calcType,
-                    'stemmastring': stem_string,
-                    'grouping': groups[c],           ### input grouping
-                    'result': res_trees[c]           ### result grouping 
-                }
-                result_record = Results.objects.create(**res_data)   ### store res_data in DB; create new record
-                c += 1
-            
             return JsonResponse({ "jobid": calc_instance.id, "input": ci.input_data, "start_time": ci.calc_start, 
                                       "end_time": ci.calc_end, "command": ci.calculation_type, "status": ci.calc_status, 
                                       "result": result, "result_source": "algorithm"}, status=201)
