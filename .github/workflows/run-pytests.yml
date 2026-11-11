@@ -31,7 +31,7 @@ jobs:
           echo "STEX_SECRET_KEY=${{secrets.STEX_SECRET_KEY}}" >> .env
     
     - name: Start the Docker containers
-      run: docker compose --profile testing up -d
+      run: docker compose -f docker-compose.yml -f docker-compose.test.yml --profile testing up -d
 
     - name: Wait for app to start
       run: |
@@ -44,3 +44,5 @@ jobs:
     - name: Test with pytest executed within testing client container
       run: docker exec stexaminer-client-1 pytest -vv -ra test_idp.py
 
+    - name: Run the Django unit tests within the idp container
+      run: docker compose -f docker-compose.yml -f docker-compose.test.yml exec -T idp python manage.py test api_app

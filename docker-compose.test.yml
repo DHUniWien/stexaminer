@@ -1,0 +1,11 @@
+# Use together with the main file when running the Django unit tests:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.test.yml up -d
+#   docker compose exec idp python manage.py test api_app
+#
+# It lets the database user create the test database that Django's test runner
+# makes. Do not use it for a production deployment.
+services:
+    mysql:
+        volumes:
+            - ./testinit/grant-test-db.sh:/docker-entrypoint-initdb.d/grant-test-db.sh:ro

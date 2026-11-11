@@ -9,6 +9,7 @@ Django
 celery
 kombu
 redis
+packaging
 
 ### for debugging
 #ptvsd 

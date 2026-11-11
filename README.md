@@ -74,3 +74,27 @@ e.g.:
 will return something like:
    
 {"jobid": 1, "status": 0, "command": "findSources", "start_time": "2024-02-14 13:21:50.580176+00:00", "result": "[[[[\"2\",\"3\",\"4\",\"5\",\"7\",\"A\",\"F\",\"G\",\"K\",\"T\",\"u03b1\",\"u03b3\",\"u03b4\"],[\"B\",\"D\",\"P\",\"S\"],[\"C\",\"E\",\"H\"],[\"Q\"]],[\"B\",\"C\",\"D\",\"E\",\"H\",\"Q\",\"u03b1\"]]]\n", "end_time": "2024-02-14 13:22:10.907579+00:00"}
+
+## Testing the service
+
+There are two layers of tests.
+
+### Unit tests
+
+The Django unit tests in `api_app/tests.py` cover the result cache in the `calc-items` view, the wait for a Celery result in `run_calc`, and the storing of results by the Celery task. 
+
+
+Django's test runner creates its own `test_<database name>` database, so start the stack with the test override file, which grants the user rights on `test_%` databases when the database is first created:
+
+    docker compose -f docker-compose.yml -f docker-compose.test.yml up -d
+    # once the stack is up
+    docker compose exec idp python manage.py test api_app
+
+n.b. With Docker Desktop on macOS the grant script can fail to run, because bind-mounted files look executable but cannot be run. In that case grant the right by hand as the database's root user: ``GRANT ALL PRIVILEGES ON `test\_%`.* TO '<user>'@'%';``.
+
+### Integration tests
+
+`client/test_idp.py` sends the requests in `client/test-requests` to the running service through the testing client, and compares the answers with the reference results in `client/references`. It needs the stack to be running with the `testing` profile:
+
+    docker compose --profile testing up -d
+    docker exec stexaminer-client-1 pytest -v test_idp.py
