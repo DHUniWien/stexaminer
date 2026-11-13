@@ -4,6 +4,9 @@ import os
 from celery import Celery
 from django.conf import settings
 
+import logging
+from celery.signals import after_setup_logger
+
 # set the default DJANGO_SETTINGS_MODULE environment variable for the celery command-line program:
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'idp3_async_api_djproj.settings')
 
@@ -17,6 +20,13 @@ celery_app.config_from_object('django.conf:settings', namespace='CELERY')
 celery_app.autodiscover_tasks()
 # ANOTHER OPTION:
 #app.autodiscover_tasks(lambda : settings.INSTALLED_APPS)
+
+# Suppress the debug logging shown below, while keeping warnings and errors
+# [...DEBUG/MainProcess] Failed to enable maintenance notifications: unknown subcommand 'MAINT_NOTIFICATIONS'. Try CLIENT HELP.
+# (With redis-py 8.1.0, this particular message is logged at DEBUG level)
+@after_setup_logger.connect
+def configure_redis_logging(**kwargs):
+    logging.getLogger("redis.connection").setLevel(logging.WARNING)
 
 # The debug_task example is a task that dumps its own request information. 
 # Using the bind=True task option to easily refer to the current task instance.

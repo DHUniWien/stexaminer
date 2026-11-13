@@ -77,7 +77,7 @@ class Results(models.Model):
 	algorithm = models.CharField(max_length=20)
 	stemmastring = models.CharField(max_length=2048)
 	grouping = models.CharField(max_length=2048)
-	result = models.CharField(max_length=4096) ### 2b checked: TEXT-field ?!
+	result = models.TextField()
 
 	def __str__(self):
 		return self.name
