@@ -28,7 +28,7 @@ SECRET_KEY = os.getenv('STEX_SECRET_KEY', "SetABetterSecretKey")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['idp', '127.0.0.1', 'localhost']
+ALLOWED_HOSTS = [os.getenv("STEX_HOSTNAME", 'idp'), '127.0.0.1', 'localhost']
 
 # Location of the Redis server; used as message broker and result-store for celery
 #redis_server = 'redis://redis:6379'
